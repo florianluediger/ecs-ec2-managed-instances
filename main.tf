@@ -10,7 +10,7 @@ terraform {
 }
 
 provider "aws" {
-  region = "eu-central-1"
+  region = "eu-west-1"
 }
 
 module "vpc" {
@@ -20,7 +20,7 @@ module "vpc" {
   name = "ecs-vpc"
   cidr = "10.0.0.0/16"
 
-  azs = ["eu-central-1a", "eu-central-1b", "eu-central-1c"]
+  azs = ["eu-west-1a", "eu-west-1b", "eu-west-1c"]
   private_subnets = ["10.0.1.0/24", "10.0.2.0/24", "10.0.3.0/24"]
   public_subnets = ["10.0.101.0/24", "10.0.102.0/24", "10.0.103.0/24"]
 
@@ -53,7 +53,7 @@ resource "aws_security_group" "ecs_sg" {
 }
 
 resource "aws_iam_role" "ecs_instance_role" {
-  name = "ecs-instance-role"
+  name = "ECSInstanceRole"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -72,7 +72,7 @@ resource "aws_iam_role" "ecs_instance_role" {
 # The attached policy allows the EC2 Instance to perform actions on the ECS Cluster via the ECS Agent
 resource "aws_iam_role_policy_attachment" "ecs_instance_role_attachment" {
   role       = aws_iam_role.ecs_instance_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSInstanceRolePolicyForManagedInstances"
+  policy_arn = "arn:aws:iam::aws:policy/AmazonECSInstanceRolePolicyForManagedInstances"
 }
 
 resource "aws_iam_instance_profile" "ecs_instance_profile" {
@@ -93,6 +93,23 @@ resource "aws_iam_role" "ecs_infrastructure" {
           Service = "ecs.amazonaws.com"
         }
       }
+    ]
+  })
+}
+
+resource "aws_iam_policy" "pass_role" {
+  name = "PassECSRole"
+  path = "/"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = [
+          "iam:PassRole",
+        ]
+        Effect   = "Allow"
+        Resource = aws_iam_role.ecs_instance_role.arn
+      },
     ]
   })
 }
@@ -141,7 +158,7 @@ resource "aws_ecs_capacity_provider" "managed_instances" {
 
 resource "aws_ecs_cluster_capacity_providers" "ecs_cluster_capacity_providers" {
   cluster_name = aws_ecs_cluster.main.name
-  capacity_providers = [aws_ecs_capacity_provider.managed_instances.name]
+  capacity_providers = []
 
   default_capacity_provider_strategy {
     capacity_provider = aws_ecs_capacity_provider.managed_instances.name
